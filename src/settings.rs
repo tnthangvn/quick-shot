@@ -5,11 +5,25 @@ use crate::config::Config;
 use crate::hotkey;
 use crate::model;
 use gtk4 as gtk;
+use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::{
-    Application, ApplicationWindow, Button, CheckButton, DropDown, Entry, Grid, Label,
-    Orientation, SpinButton,
+    Application, ApplicationWindow, Button, CheckButton, DropDown, Entry, EventControllerKey,
+    Grid, Label, Orientation, SpinButton,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
+
+/// Phím bấm một mình chỉ là bổ trợ (Shift/Ctrl/Alt/Super…) — bỏ qua khi bắt phím.
+fn is_modifier_key(k: gdk::Key) -> bool {
+    matches!(
+        k,
+        gdk::Key::Shift_L | gdk::Key::Shift_R | gdk::Key::Control_L | gdk::Key::Control_R
+            | gdk::Key::Alt_L | gdk::Key::Alt_R | gdk::Key::Meta_L | gdk::Key::Meta_R
+            | gdk::Key::Super_L | gdk::Key::Super_R | gdk::Key::Hyper_L | gdk::Key::Hyper_R
+            | gdk::Key::ISO_Level3_Shift | gdk::Key::Caps_Lock | gdk::Key::Num_Lock
+    )
+}
 
 const RATIOS: [&str; 6] = ["free", "1:1", "4:3", "16:9", "3:2", "9:16"];
 
@@ -48,17 +62,65 @@ fn build_ui(app: &Application) {
         grid.attach(&l, 0, row, 1, 1);
     };
 
-    // --- Phím tắt toàn cục ---
+    // --- Phím tắt toàn cục (bắt phím thật, không gõ text) ---
     add_label(&grid, "Phím tắt mở QuickShot", row);
-    let hotkey_entry = Entry::builder()
-        .text(hotkey::current_binding().unwrap_or_else(|| "Print".into()))
+    let hotkey_val = Rc::new(RefCell::new(hotkey::current_binding().unwrap_or_default()));
+    let capturing = Rc::new(RefCell::new(false));
+    let btn_label = |v: &str| {
+        if v.is_empty() { "(chưa gán) — bấm để đặt".to_string() } else { v.to_string() }
+    };
+    let hotkey_btn = Button::builder()
+        .label(btn_label(&hotkey_val.borrow()))
         .hexpand(true)
-        .tooltip_text("Vd: Print, <Shift>Print, <Super>s, <Ctrl><Alt>a")
+        .tooltip_text("Bấm rồi nhấn tổ hợp phím muốn dùng (Esc huỷ)")
         .build();
-    grid.attach(&hotkey_entry, 1, row, 1, 1);
+    grid.attach(&hotkey_btn, 1, row, 1, 1);
     let hotkey_remove = Button::with_label("Gỡ");
     grid.attach(&hotkey_remove, 2, row, 1, 1);
     row += 1;
+
+    // Click nút = vào chế độ bắt phím.
+    {
+        let capturing = capturing.clone();
+        let hotkey_btn2 = hotkey_btn.clone();
+        hotkey_btn.connect_clicked(move |_| {
+            *capturing.borrow_mut() = true;
+            hotkey_btn2.set_label("Nhấn tổ hợp phím…  (Esc huỷ)");
+        });
+    }
+    // Controller bắt phím ở pha Capture để không lọt vào các ô Entry khác.
+    {
+        let capturing = capturing.clone();
+        let hotkey_val = hotkey_val.clone();
+        let hotkey_btn = hotkey_btn.clone();
+        let keys = EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        keys.connect_key_pressed(move |_, keyval, _keycode, state| {
+            if !*capturing.borrow() {
+                return gtk::glib::Propagation::Proceed;
+            }
+            if keyval == gdk::Key::Escape {
+                *capturing.borrow_mut() = false;
+                hotkey_btn.set_label(&btn_label(&hotkey_val.borrow()));
+                return gtk::glib::Propagation::Stop;
+            }
+            if is_modifier_key(keyval) {
+                return gtk::glib::Propagation::Stop; // đợi phím chính
+            }
+            let mods = state
+                & (gdk::ModifierType::CONTROL_MASK
+                    | gdk::ModifierType::SHIFT_MASK
+                    | gdk::ModifierType::ALT_MASK
+                    | gdk::ModifierType::SUPER_MASK
+                    | gdk::ModifierType::META_MASK);
+            let accel = gtk::accelerator_name(keyval, mods).to_string();
+            *hotkey_val.borrow_mut() = accel.clone();
+            *capturing.borrow_mut() = false;
+            hotkey_btn.set_label(&btn_label(&accel));
+            gtk::glib::Propagation::Stop
+        });
+        win.add_controller(keys);
+    }
 
     // --- Thư mục lưu ---
     add_label(&grid, "Thư mục lưu ảnh", row);
@@ -160,11 +222,13 @@ fn build_ui(app: &Application) {
 
     // Gỡ phím tắt.
     {
-        let hotkey_entry = hotkey_entry.clone();
+        let hotkey_val = hotkey_val.clone();
+        let hotkey_btn = hotkey_btn.clone();
         let status = status.clone();
         hotkey_remove.connect_clicked(move |_| match hotkey::remove() {
             Ok(msg) => {
-                hotkey_entry.set_text("");
+                hotkey_val.borrow_mut().clear();
+                hotkey_btn.set_label("(chưa gán) — bấm để đặt");
                 status.set_text(&msg);
             }
             Err(e) => status.set_text(&format!("Lỗi gỡ phím tắt: {e}")),
@@ -217,8 +281,8 @@ fn build_ui(app: &Application) {
             }
         };
 
-        // Áp phím tắt (ô trống = không đụng phím tắt).
-        let key = hotkey_entry.text().to_string();
+        // Áp phím tắt (chưa gán = không đụng phím tắt).
+        let key = hotkey_val.borrow().clone();
         if !key.trim().is_empty() {
             match hotkey::install(&key, &hotkey::default_command(DESKTOP_ID)) {
                 Ok(m) => {
