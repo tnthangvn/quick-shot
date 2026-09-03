@@ -36,6 +36,12 @@ fn entry_name(path: &str) -> String {
         .unwrap_or_default()
 }
 
+fn entry_binding(path: &str) -> String {
+    gsettings(&["get", &format!("{SCHEMA}.custom-keybinding:{path}"), "binding"])
+        .map(|s| s.trim_matches('\'').to_string())
+        .unwrap_or_default()
+}
+
 /// Gán `binding` (vd "Print", "<Shift>Print", "<Super>s") chạy lệnh `command`.
 pub fn install(binding: &str, command: &str) -> Result<String, String> {
     let mut paths = list_paths()?;
@@ -66,6 +72,24 @@ pub fn install(binding: &str, command: &str) -> Result<String, String> {
     gsettings(&["set", &sub, "binding", &format!("'{binding}'")])?;
 
     let mut msg = format!("Đã gán phím [{binding}] → {command}");
+
+    // Custom shortcut khác (vd Flameshot) cũng có thể chiếm cùng phím này -> gỡ binding của chúng.
+    let want = binding.to_ascii_lowercase();
+    for p in &paths {
+        if *p == path {
+            continue;
+        }
+        if entry_binding(p).to_ascii_lowercase() == want {
+            let other = entry_name(p);
+            let sub_other = format!("{SCHEMA}.custom-keybinding:{p}");
+            let _ = gsettings(&["set", &sub_other, "binding", "''"]);
+            msg.push_str(&format!(
+                "\nĐã gỡ phím [{binding}] khỏi custom shortcut '{other}' (đang chiếm phím này).\n\
+                 Khôi phục: gsettings set {sub_other} binding \"'{binding}'\""
+            ));
+        }
+    }
+
     // GNOME dùng sẵn Print/Shift+Print/Alt+Print cho screenshot UI của nó — gỡ ra để không xung đột.
     let lower = binding.to_ascii_lowercase();
     if lower.contains("print") {

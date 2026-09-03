@@ -27,7 +27,7 @@ fi
 echo "== 3/4 Copy file =="
 mkdir -p "$BIN_DIR" "$APP_DIR" "$ICON_DIR"
 install -m 755 bin/quickshot "$BIN_DIR/quickshot"
-sed "s|^Exec=quickshot gui|Exec=$BIN_DIR/quickshot gui|" packaging/$ID.desktop > "$APP_DIR/$ID.desktop"
+sed "s|^Exec=quickshot gui|Exec=$BIN_DIR/quickshot gui|" packaging/$ID.desktop.txt > "$APP_DIR/$ID.desktop"
 install -m 644 packaging/$ID.svg "$ICON_DIR/$ID.svg"
 update-desktop-database "$APP_DIR" 2>/dev/null || true
 gtk-update-icon-cache -q "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
