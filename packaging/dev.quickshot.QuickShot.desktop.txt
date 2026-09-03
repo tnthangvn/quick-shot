@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=QuickShot
+Name[vi]=QuickShot — Chụp màn hình
+Comment=Screenshot & annotate (Flameshot-like, multi-monitor, Wayland)
+Comment[vi]=Chụp màn hình và chú thích kiểu Flameshot, hỗ trợ nhiều màn hình trên Wayland
+Exec=quickshot gui
+Icon=dev.quickshot.QuickShot
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=screenshot;capture;chup;man;hinh;flameshot;
+StartupNotify=false

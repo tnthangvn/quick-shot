@@ -1,0 +1,16 @@
+[package]
+name = "quickshot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ashpd = { version = "0.10", default-features = false, features = ["tokio"] }
+chrono = "0.4"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+gtk4 = { version = "0.9", features = ["v4_14"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+pangocairo = "0.20"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+toml = "0.8"
