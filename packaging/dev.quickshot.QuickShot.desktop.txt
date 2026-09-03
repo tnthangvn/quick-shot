@@ -10,3 +10,9 @@ Terminal=false
 Categories=Utility;Graphics;
 Keywords=screenshot;capture;chup;man;hinh;flameshot;
 StartupNotify=false
+Actions=Settings;
+
+[Desktop Action Settings]
+Name=Settings
+Name[vi]=Cài đặt
+Exec=quickshot settings

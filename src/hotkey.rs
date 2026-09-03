@@ -42,6 +42,31 @@ fn entry_binding(path: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Trả về phím tắt hiện đang gán cho quickshot (nếu có).
+pub fn current_binding() -> Option<String> {
+    let paths = list_paths().ok()?;
+    let path = paths.iter().find(|p| entry_name(p) == NAME)?;
+    let b = entry_binding(path);
+    if b.is_empty() { None } else { Some(b) }
+}
+
+/// Lệnh nên chạy khi bấm phím tắt: ưu tiên `gtk-launch <app>` (để GNOME nhớ quyền
+/// portal), nếu chưa cài .desktop thì dùng đường dẫn nhị phân hiện tại.
+pub fn default_command(desktop_id: &str) -> String {
+    let desktop_installed = dirs::data_dir()
+        .map(|d| d.join("applications").join(format!("{desktop_id}.desktop")).exists())
+        .unwrap_or(false)
+        || std::path::Path::new(&format!("/usr/share/applications/{desktop_id}.desktop")).exists()
+        || std::path::Path::new(&format!("/usr/local/share/applications/{desktop_id}.desktop")).exists();
+    if desktop_installed && crate::capture::which("gtk-launch").is_some() {
+        format!("gtk-launch {desktop_id}")
+    } else {
+        std::env::current_exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "quickshot".into())
+    }
+}
+
 /// Gán `binding` (vd "Print", "<Shift>Print", "<Super>s") chạy lệnh `command`.
 pub fn install(binding: &str, command: &str) -> Result<String, String> {
     let mut paths = list_paths()?;

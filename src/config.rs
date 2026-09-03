@@ -75,6 +75,17 @@ impl Config {
             .join("Screenshots")
     }
 
+    /// Ghi cấu hình hiện tại xuống file (ghi đè). Dùng bởi cửa sổ cài đặt.
+    pub fn save(&self) -> Result<PathBuf, String> {
+        let p = Self::path().ok_or("không xác định được thư mục cấu hình")?;
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let text = toml::to_string_pretty(self).map_err(|e| e.to_string())?;
+        std::fs::write(&p, text).map_err(|e| format!("ghi {}: {e}", p.display()))?;
+        Ok(p)
+    }
+
     /// Ghi file cấu hình mẫu (đầy đủ chú thích) nếu chưa có.
     pub fn write_default() -> Result<PathBuf, String> {
         let p = Self::path().ok_or("không xác định được thư mục cấu hình")?;

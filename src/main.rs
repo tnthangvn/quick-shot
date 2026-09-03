@@ -7,6 +7,7 @@ mod model;
 mod output;
 mod overlay;
 mod render;
+mod settings;
 
 use clap::{Parser, Subcommand};
 use gtk4 as gtk;
@@ -111,6 +112,8 @@ enum Cmd {
         #[arg(long)]
         init: bool,
     },
+    /// Mở cửa sổ cài đặt (chỉnh phím tắt, thư mục lưu, màu... bằng giao diện)
+    Settings,
 }
 
 fn main() {
@@ -123,6 +126,7 @@ fn main() {
         Cmd::Screens => run_screens(cli.debug),
         Cmd::Hotkey { key, command, remove } => run_hotkey(key, command, remove),
         Cmd::Config { init } => run_config(init),
+        Cmd::Settings => settings::run(),
     };
     std::process::exit(code);
 }
@@ -322,22 +326,7 @@ fn run_hotkey(key: String, command: Option<String>, remove: bool) -> i32 {
     let res = if remove {
         hotkey::remove()
     } else {
-        let cmd = command.unwrap_or_else(|| {
-            // Ưu tiên mở qua file .desktop (gtk-launch) để GNOME nhận diện app → portal nhớ quyền
-            // chụp màn hình, không hỏi lại mỗi lần.
-            let desktop_installed = dirs::data_dir()
-                .map(|d| d.join("applications").join(format!("{DESKTOP_ID}.desktop")).exists())
-                .unwrap_or(false)
-                || std::path::Path::new(&format!("/usr/share/applications/{DESKTOP_ID}.desktop")).exists()
-                || std::path::Path::new(&format!("/usr/local/share/applications/{DESKTOP_ID}.desktop")).exists();
-            if desktop_installed && capture::which("gtk-launch").is_some() {
-                format!("gtk-launch {DESKTOP_ID}")
-            } else {
-                std::env::current_exe()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| "quickshot".into())
-            }
-        });
+        let cmd = command.unwrap_or_else(|| hotkey::default_command(DESKTOP_ID));
         hotkey::install(&key, &cmd)
     };
     match res {
