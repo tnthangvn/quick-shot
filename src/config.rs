@@ -55,7 +55,10 @@ impl Config {
             Ok(s) => match toml::from_str::<Config>(&s) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("quickshot: lỗi trong {}: {e} — dùng cấu hình mặc định", p.display());
+                    eprintln!(
+                        "quickshot: lỗi trong {}: {e} — dùng cấu hình mặc định",
+                        p.display()
+                    );
                     Config::default()
                 }
             },

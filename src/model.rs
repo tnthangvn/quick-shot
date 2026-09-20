@@ -71,7 +71,12 @@ impl Rect {
     pub fn rounded(&self) -> Rect {
         let x = self.x.round();
         let y = self.y.round();
-        Rect::new(x, y, (self.right().round() - x).max(1.0), (self.bottom().round() - y).max(1.0))
+        Rect::new(
+            x,
+            y,
+            (self.right().round() - x).max(1.0),
+            (self.bottom().round() - y).max(1.0),
+        )
     }
 }
 
@@ -292,6 +297,9 @@ impl MonitorInfo {
         (self.canvas.x + lx * self.sx, self.canvas.y + ly * self.sy)
     }
     pub fn to_local(&self, cx: f64, cy: f64) -> (f64, f64) {
-        ((cx - self.canvas.x) / self.sx, (cy - self.canvas.y) / self.sy)
+        (
+            (cx - self.canvas.x) / self.sx,
+            (cy - self.canvas.y) / self.sy,
+        )
     }
 }

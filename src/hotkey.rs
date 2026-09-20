@@ -37,9 +37,13 @@ fn entry_name(path: &str) -> String {
 }
 
 fn entry_binding(path: &str) -> String {
-    gsettings(&["get", &format!("{SCHEMA}.custom-keybinding:{path}"), "binding"])
-        .map(|s| s.trim_matches('\'').to_string())
-        .unwrap_or_default()
+    gsettings(&[
+        "get",
+        &format!("{SCHEMA}.custom-keybinding:{path}"),
+        "binding",
+    ])
+    .map(|s| s.trim_matches('\'').to_string())
+    .unwrap_or_default()
 }
 
 /// Trả về phím tắt hiện đang gán cho quickshot (nếu có).
@@ -54,10 +58,17 @@ pub fn current_binding() -> Option<String> {
 /// portal), nếu chưa cài .desktop thì dùng đường dẫn nhị phân hiện tại.
 pub fn default_command(desktop_id: &str) -> String {
     let desktop_installed = dirs::data_dir()
-        .map(|d| d.join("applications").join(format!("{desktop_id}.desktop")).exists())
+        .map(|d| {
+            d.join("applications")
+                .join(format!("{desktop_id}.desktop"))
+                .exists()
+        })
         .unwrap_or(false)
         || std::path::Path::new(&format!("/usr/share/applications/{desktop_id}.desktop")).exists()
-        || std::path::Path::new(&format!("/usr/local/share/applications/{desktop_id}.desktop")).exists();
+        || std::path::Path::new(&format!(
+            "/usr/local/share/applications/{desktop_id}.desktop"
+        ))
+        .exists();
     if desktop_installed && crate::capture::which("gtk-launch").is_some() {
         format!("gtk-launch {desktop_id}")
     } else {
@@ -87,7 +98,11 @@ pub fn install(binding: &str, command: &str) -> Result<String, String> {
         paths.push(path.clone());
         let list = format!(
             "[{}]",
-            paths.iter().map(|p| format!("'{p}'")).collect::<Vec<_>>().join(", ")
+            paths
+                .iter()
+                .map(|p| format!("'{p}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
         gsettings(&["set", SCHEMA, KEY, &list])?;
     }
@@ -145,7 +160,13 @@ pub fn remove() -> Result<String, String> {
     let list = if rest.is_empty() {
         "@as []".to_string()
     } else {
-        format!("[{}]", rest.iter().map(|p| format!("'{p}'")).collect::<Vec<_>>().join(", "))
+        format!(
+            "[{}]",
+            rest.iter()
+                .map(|p| format!("'{p}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     };
     gsettings(&["set", SCHEMA, KEY, &list])?;
     let sub = format!("{SCHEMA}.custom-keybinding:{path}");

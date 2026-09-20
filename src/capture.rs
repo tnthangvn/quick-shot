@@ -21,7 +21,10 @@ pub fn capture_all(debug: bool) -> Result<Captured, String> {
     // Dùng để thử nghiệm: QUICKSHOT_FAKE_IMAGE=/path/anh.png thay cho chụp thật
     if let Some(p) = std::env::var_os("QUICKSHOT_FAKE_IMAGE") {
         let img = load_png(Path::new(&p))?;
-        return Ok(Captured { image: img, source: "fake" });
+        return Ok(Captured {
+            image: img,
+            source: "fake",
+        });
     }
 
     match capture_portal() {
@@ -29,7 +32,10 @@ pub fn capture_all(debug: bool) -> Result<Captured, String> {
             if debug {
                 eprintln!("[capture] portal OK: {}x{}", img.width(), img.height());
             }
-            return Ok(Captured { image: img, source: "portal" });
+            return Ok(Captured {
+                image: img,
+                source: "portal",
+            });
         }
         Err(e) => {
             if debug {
@@ -48,7 +54,10 @@ pub fn capture_all(debug: bool) -> Result<Captured, String> {
                 if debug {
                     eprintln!("[capture] {name} OK: {}x{}", img.width(), img.height());
                 }
-                return Ok(Captured { image: img, source: name });
+                return Ok(Captured {
+                    image: img,
+                    source: name,
+                });
             }
             Err(e) => {
                 if debug {
@@ -101,7 +110,16 @@ fn external_commands() -> Vec<(&'static str, Vec<String>)> {
         ("grim", vec![o.clone()]),
         ("import", vec!["-window".into(), "root".into(), o.clone()]),
         ("scrot", vec!["-o".into(), o.clone()]),
-        ("spectacle", vec!["-b".into(), "-n".into(), "-f".into(), "-o".into(), o.clone()]),
+        (
+            "spectacle",
+            vec![
+                "-b".into(),
+                "-n".into(),
+                "-f".into(),
+                "-o".into(),
+                o.clone(),
+            ],
+        ),
     ]
 }
 

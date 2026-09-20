@@ -177,7 +177,12 @@ impl Overlay {
         self.monitors.clear();
         for (i, m) in mons.iter().enumerate() {
             let g = m.geometry();
-            let logical = Rect::new(g.x() as f64, g.y() as f64, g.width() as f64, g.height() as f64);
+            let logical = Rect::new(
+                g.x() as f64,
+                g.y() as f64,
+                g.width() as f64,
+                g.height() as f64,
+            );
             let canvas = Rect::new(
                 (logical.x - minx) * rx,
                 (logical.y - miny) * ry,
@@ -189,12 +194,29 @@ impl Overlay {
                 .map(|s| s.to_string())
                 .or_else(|| m.model().map(|s| s.to_string()))
                 .unwrap_or_else(|| format!("monitor{i}"));
-            let info = MonitorInfo { index: i, name, logical, canvas, sx: rx, sy: ry };
+            let info = MonitorInfo {
+                index: i,
+                name,
+                logical,
+                canvas,
+                sx: rx,
+                sy: ry,
+            };
             if self.debug {
                 eprintln!(
                     "[monitor {i}] {} logic=({},{} {}x{}) scale={} canvas=({:.0},{:.0} {:.0}x{:.0}) r=({:.3},{:.3})",
-                    info.name, logical.x, logical.y, logical.w, logical.h, m.scale_factor(),
-                    canvas.x, canvas.y, canvas.w, canvas.h, rx, ry
+                    info.name,
+                    logical.x,
+                    logical.y,
+                    logical.w,
+                    logical.h,
+                    m.scale_factor(),
+                    canvas.x,
+                    canvas.y,
+                    canvas.w,
+                    canvas.h,
+                    rx,
+                    ry
                 );
             }
             self.monitors.push(info);
@@ -403,7 +425,9 @@ impl Overlay {
         if !bar.contains(lx, ly) {
             return None;
         }
-        btns.iter().find(|(r, _)| r.contains(lx, ly)).map(|(_, b)| *b)
+        btns.iter()
+            .find(|(r, _)| r.contains(lx, ly))
+            .map(|(_, b)| *b)
     }
 
     fn toolbar_contains(&self, mi: usize, lx: f64, ly: f64) -> bool {
@@ -471,12 +495,20 @@ impl Overlay {
         let x = cx.round().clamp(0.0, self.bounds.w - 1.0) as u32;
         let y = cy.round().clamp(0.0, self.bounds.h - 1.0) as u32;
         let p = self.base.get_pixel(x, y);
-        let c = Color::rgb(p[0] as f64 / 255.0, p[1] as f64 / 255.0, p[2] as f64 / 255.0);
+        let c = Color::rgb(
+            p[0] as f64 / 255.0,
+            p[1] as f64 / 255.0,
+            p[2] as f64 / 255.0,
+        );
         self.color = c;
         let hex = c.to_hex();
         copy_text(&self.windows, &hex);
         self.set_status(format!("Đã lấy màu {hex} (đã copy)"));
-        self.tool = if self.prev_tool == Tool::Picker { Tool::Select } else { self.prev_tool };
+        self.tool = if self.prev_tool == Tool::Picker {
+            Tool::Select
+        } else {
+            self.prev_tool
+        };
     }
 
     fn new_shape(&self, kind: ShapeKind, x: f64, y: f64) -> Shape {
@@ -494,7 +526,14 @@ impl Overlay {
 
     // ---------- Sự kiện ----------
 
-    fn on_press(&mut self, mi: usize, button: u32, lx: f64, ly: f64, state: gdk::ModifierType) -> Option<Action> {
+    fn on_press(
+        &mut self,
+        mi: usize,
+        button: u32,
+        lx: f64,
+        ly: f64,
+        state: gdk::ModifierType,
+    ) -> Option<Action> {
         let mon = self.monitors[mi].clone();
         let (cx, cy) = mon.to_canvas(lx, ly);
         self.cursor = (cx, cy);
@@ -534,10 +573,16 @@ impl Overlay {
         match self.tool {
             Tool::Select => {
                 if let Some(h) = self.handle_at(cx, cy, &mon) {
-                    self.drag = Some(Drag::ResizeSel { handle: h, anchor: self.sel.unwrap() });
+                    self.drag = Some(Drag::ResizeSel {
+                        handle: h,
+                        anchor: self.sel.unwrap(),
+                    });
                 } else if self.sel.map(|s| s.contains(cx, cy)).unwrap_or(false) {
                     let s = self.sel.unwrap();
-                    self.drag = Some(Drag::MoveSel { dx: cx - s.x, dy: cy - s.y });
+                    self.drag = Some(Drag::MoveSel {
+                        dx: cx - s.x,
+                        dy: cy - s.y,
+                    });
                 } else {
                     self.drag = Some(Drag::NewSel { sx: cx, sy: cy });
                     self.sel = Some(Rect::new(cx, cy, 0.0, 0.0));
@@ -547,7 +592,8 @@ impl Overlay {
                 self.pick_color(cx, cy);
             }
             Tool::Text => {
-                let sz = render::text_size(&self.new_shape(ShapeKind::Text(String::new()), 0.0, 0.0));
+                let sz =
+                    render::text_size(&self.new_shape(ShapeKind::Text(String::new()), 0.0, 0.0));
                 let s = self.new_shape(ShapeKind::Text(String::new()), cx, cy - sz * 0.6);
                 self.shapes.push(s);
                 self.redo.clear();
@@ -637,7 +683,11 @@ impl Overlay {
                     _ => Rect::from_points(ax, anchor.y, px, anchor.bottom()),
                 };
                 if shift || self.ratio.value().is_some() {
-                    let v = if shift { 1.0 } else { self.ratio.value().unwrap() };
+                    let v = if shift {
+                        1.0
+                    } else {
+                        self.ratio.value().unwrap()
+                    };
                     match handle {
                         1 | 5 => {
                             // kéo cạnh trên/dưới → giữ chiều cao, đổi chiều rộng quanh tâm
@@ -781,7 +831,11 @@ impl Overlay {
             }
             Btn::Fill => self.filled = !self.filled,
             Btn::Thick => {
-                self.thickness = if self.thickness >= 40.0 { 1.0 } else { (self.thickness + 2.0).min(40.0) };
+                self.thickness = if self.thickness >= 40.0 {
+                    1.0
+                } else {
+                    (self.thickness + 2.0).min(40.0)
+                };
             }
             Btn::Ratio => {
                 self.ratio = self.ratio.next();
@@ -802,7 +856,9 @@ impl Overlay {
             match key {
                 gdk::Key::Escape | gdk::Key::Return | gdk::Key::KP_Enter => {
                     if key == gdk::Key::Return && shift {
-                        if let Some(ShapeKind::Text(t)) = self.shapes.get_mut(i).map(|s| &mut s.kind) {
+                        if let Some(ShapeKind::Text(t)) =
+                            self.shapes.get_mut(i).map(|s| &mut s.kind)
+                        {
                             t.push('\n');
                         }
                     } else {
@@ -819,7 +875,9 @@ impl Overlay {
                     if !ctrl {
                         if let Some(ch) = key.to_unicode() {
                             if !ch.is_control() {
-                                if let Some(ShapeKind::Text(t)) = self.shapes.get_mut(i).map(|s| &mut s.kind) {
+                                if let Some(ShapeKind::Text(t)) =
+                                    self.shapes.get_mut(i).map(|s| &mut s.kind)
+                                {
                                     t.push(ch);
                                 }
                             }
@@ -834,7 +892,11 @@ impl Overlay {
             gdk::Key::Escape => self.quit(),
             gdk::Key::Return | gdk::Key::KP_Enter => {
                 if self.sel.is_some() {
-                    return Some(if self.cfg.enter_copies { Action::Copy } else { Action::Save(None) });
+                    return Some(if self.cfg.enter_copies {
+                        Action::Copy
+                    } else {
+                        Action::Save(None)
+                    });
                 }
             }
             gdk::Key::c | gdk::Key::C if ctrl => return Some(Action::Copy),
@@ -940,7 +1002,9 @@ impl Overlay {
     // ---------- Vẽ ----------
 
     fn draw(&self, mi: usize, cr: &cairo::Context, w: i32, h: i32) {
-        let Some(mon) = self.monitors.get(mi) else { return };
+        let Some(mon) = self.monitors.get(mi) else {
+            return;
+        };
         let (w, h) = (w as f64, h as f64);
 
         // --- Lớp canvas ---
@@ -971,13 +1035,20 @@ impl Overlay {
             // viền vùng chọn
             cr.set_line_width(1.0 * mon.sx);
             cr.set_source_rgba(0.0, 0.0, 0.0, 0.6);
-            cr.rectangle(sel.x - 1.0 * mon.sx, sel.y - 1.0 * mon.sy, sel.w + 2.0 * mon.sx, sel.h + 2.0 * mon.sy);
+            cr.rectangle(
+                sel.x - 1.0 * mon.sx,
+                sel.y - 1.0 * mon.sy,
+                sel.w + 2.0 * mon.sx,
+                sel.h + 2.0 * mon.sy,
+            );
             cr.stroke().ok();
             cr.set_source_rgba(1.0, 1.0, 1.0, 0.95);
             cr.rectangle(sel.x, sel.y, sel.w, sel.h);
             cr.stroke().ok();
             // tay cầm
-            if self.tool == Tool::Select && self.drag.is_none() || matches!(self.drag, Some(Drag::ResizeSel { .. })) {
+            if self.tool == Tool::Select && self.drag.is_none()
+                || matches!(self.drag, Some(Drag::ResizeSel { .. }))
+            {
                 let hs = HANDLE * mon.sx;
                 for (hx, hy) in self.handles(&sel) {
                     cr.rectangle(hx - hs / 2.0, hy - hs / 2.0, hs, hs);
@@ -998,7 +1069,9 @@ impl Overlay {
             let sr = sel.rounded();
             let label = format!("{} × {}", sr.w as i64, sr.h as i64);
             let (lx, ly) = mon.to_local(sel.x, sel.y);
-            let label_mon = self.monitor_at(sel.x, sel.y).unwrap_or_else(|| self.toolbar_monitor());
+            let label_mon = self
+                .monitor_at(sel.x, sel.y)
+                .unwrap_or_else(|| self.toolbar_monitor());
             if label_mon == mi {
                 let layout = pangocairo::functions::create_layout(cr);
                 layout.set_font_description(Some(&font));
@@ -1077,7 +1150,11 @@ impl Overlay {
                 let tw = ext.width() as f64 + 20.0;
                 let th = ext.height() as f64 + 12.0;
                 let bx = (w - tw) / 2.0;
-                let by = if self.sel.is_some() { h * 0.08 } else { h * 0.08 + 50.0 };
+                let by = if self.sel.is_some() {
+                    h * 0.08
+                } else {
+                    h * 0.08 + 50.0
+                };
                 rounded_rect(cr, bx, by, tw, th, 6.0);
                 cr.set_source_rgba(0.1, 0.1, 0.1, 0.85);
                 cr.fill().ok();
@@ -1156,8 +1233,20 @@ fn rounded_rect(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, r: f64) {
     cr.new_sub_path();
     cr.arc(x + w - r, y + r, r, -std::f64::consts::FRAC_PI_2, 0.0);
     cr.arc(x + w - r, y + h - r, r, 0.0, std::f64::consts::FRAC_PI_2);
-    cr.arc(x + r, y + h - r, r, std::f64::consts::FRAC_PI_2, std::f64::consts::PI);
-    cr.arc(x + r, y + r, r, std::f64::consts::PI, 1.5 * std::f64::consts::PI);
+    cr.arc(
+        x + r,
+        y + h - r,
+        r,
+        std::f64::consts::FRAC_PI_2,
+        std::f64::consts::PI,
+    );
+    cr.arc(
+        x + r,
+        y + r,
+        r,
+        std::f64::consts::PI,
+        1.5 * std::f64::consts::PI,
+    );
     cr.close_path();
 }
 
@@ -1207,7 +1296,14 @@ fn draw_icon(cr: &cairo::Context, b: Btn, r: &Rect, ov: &Overlay) {
         }
         Btn::Tool(Tool::Pen) => {
             cr.move_to(cx - s, cy + s * 0.6);
-            cr.curve_to(cx - s * 0.3, cy - s * 1.2, cx + s * 0.3, cy + s * 1.2, cx + s, cy - s * 0.6);
+            cr.curve_to(
+                cx - s * 0.3,
+                cy - s * 1.2,
+                cx + s * 0.3,
+                cy + s * 1.2,
+                cx + s,
+                cy - s * 0.6,
+            );
             cr.stroke().ok();
         }
         Btn::Tool(Tool::Marker) => {
@@ -1243,7 +1339,12 @@ fn draw_icon(cr: &cairo::Context, b: Btn, r: &Rect, ov: &Overlay) {
                 for j in 0..n {
                     let a = if (i + j) % 2 == 0 { 0.9 } else { 0.35 };
                     cr.set_source_rgba(1.0, 1.0, 1.0, a);
-                    cr.rectangle(cx - s + i as f64 * cell, cy - s + j as f64 * cell, cell, cell);
+                    cr.rectangle(
+                        cx - s + i as f64 * cell,
+                        cy - s + j as f64 * cell,
+                        cell,
+                        cell,
+                    );
                     cr.fill().ok();
                 }
             }
@@ -1268,7 +1369,13 @@ fn draw_icon(cr: &cairo::Context, b: Btn, r: &Rect, ov: &Overlay) {
             cr.save().ok();
             cr.translate(cx, cy);
             cr.scale(dir, 1.0);
-            cr.arc(0.0, s * 0.3, s, std::f64::consts::PI * 1.05, std::f64::consts::PI * 1.9);
+            cr.arc(
+                0.0,
+                s * 0.3,
+                s,
+                std::f64::consts::PI * 1.05,
+                std::f64::consts::PI * 1.9,
+            );
             cr.stroke().ok();
             let (ax, ay) = (-s * 0.95, s * 0.3 - s * 0.35);
             cr.move_to(ax - s * 0.35, ay - s * 0.5);
@@ -1301,7 +1408,13 @@ fn draw_icon(cr: &cairo::Context, b: Btn, r: &Rect, ov: &Overlay) {
             cr.fill().ok();
             if b == Btn::SaveAs {
                 cr.set_source_rgba(0.13, 0.13, 0.15, 1.0);
-                cr.arc(cx + s * 0.9, cy + s * 0.9, s * 0.6, 0.0, std::f64::consts::TAU);
+                cr.arc(
+                    cx + s * 0.9,
+                    cy + s * 0.9,
+                    s * 0.6,
+                    0.0,
+                    std::f64::consts::TAU,
+                );
                 cr.fill().ok();
                 cr.set_source_rgba(1.0, 1.0, 1.0, 0.92);
                 let layout = pangocairo::functions::create_layout(cr);
@@ -1353,7 +1466,10 @@ fn draw_icon(cr: &cairo::Context, b: Btn, r: &Rect, ov: &Overlay) {
 
 fn center_layout(cr: &cairo::Context, layout: &pango::Layout, cx: f64, cy: f64) {
     let (_, ext) = layout.pixel_extents();
-    cr.move_to(cx - ext.width() as f64 / 2.0, cy - ext.height() as f64 / 2.0);
+    cr.move_to(
+        cx - ext.width() as f64 / 2.0,
+        cy - ext.height() as f64 / 2.0,
+    );
     pangocairo::functions::show_layout(cr, layout);
 }
 
@@ -1376,7 +1492,9 @@ thread_local! {
 fn save_as_dialog(win: Option<gtk::Window>) {
     let Some(win) = win else { return };
     PENDING_SAVE_AS.with(|p| {
-        let Some(shared) = p.borrow().clone() else { return };
+        let Some(shared) = p.borrow().clone() else {
+            return;
+        };
         let (dir, name) = {
             let ov = shared.borrow();
             let p = output::default_save_path(&ov.cfg);
@@ -1472,7 +1590,13 @@ pub fn perform(shared: &Shared, action: Action) {
                     if let Some(w) = windows.first() {
                         let (iw, ih) = (img.width() as i32, img.height() as i32);
                         let bytes = glib::Bytes::from_owned(img.clone().into_raw());
-                        let tex = gdk::MemoryTexture::new(iw, ih, gdk::MemoryFormat::R8g8b8a8, &bytes, (iw * 4) as usize);
+                        let tex = gdk::MemoryTexture::new(
+                            iw,
+                            ih,
+                            gdk::MemoryFormat::R8g8b8a8,
+                            &bytes,
+                            (iw * 4) as usize,
+                        );
                         let clip = WidgetExt::display(w).clipboard();
                         clip.set_texture(&tex);
                         keep_alive = true;
@@ -1509,7 +1633,9 @@ pub fn perform(shared: &Shared, action: Action) {
                 &format!("{sr} — {}", p.display()),
                 Some(p),
             ),
-            (Some(p), false) => output::notify("Đã lưu ảnh", &format!("{sr} — {}", p.display()), Some(p)),
+            (Some(p), false) => {
+                output::notify("Đã lưu ảnh", &format!("{sr} — {}", p.display()), Some(p))
+            }
             (None, true) => output::notify("Đã copy ảnh vào clipboard", &sr, None),
             (None, false) => {}
         }
@@ -1530,7 +1656,10 @@ pub fn run(overlay: Overlay) -> i32 {
     let shared: Shared = Rc::new(RefCell::new(overlay));
     PENDING_SAVE_AS.with(|p| *p.borrow_mut() = Some(shared.clone()));
 
-    let app = gtk::Application::new(Some(crate::DESKTOP_ID), gtk::gio::ApplicationFlags::NON_UNIQUE);
+    let app = gtk::Application::new(
+        Some(crate::DESKTOP_ID),
+        gtk::gio::ApplicationFlags::NON_UNIQUE,
+    );
     let shared_act = shared.clone();
     app.connect_activate(move |app| {
         build_windows(app, &shared_act);

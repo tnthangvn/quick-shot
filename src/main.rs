@@ -3,6 +3,7 @@
 mod capture;
 mod config;
 mod hotkey;
+mod inhibit;
 mod model;
 mod output;
 mod overlay;
@@ -59,7 +60,13 @@ struct Cli {
     debug: bool,
 
     /// Chờ N giây trước khi chụp (để mở menu, tooltip...)
-    #[arg(short = 'd', long, global = true, value_name = "GIÂY", default_value_t = 0.0)]
+    #[arg(
+        short = 'd',
+        long,
+        global = true,
+        value_name = "GIÂY",
+        default_value_t = 0.0
+    )]
     delay: f64,
 }
 
@@ -118,13 +125,24 @@ enum Cmd {
 
 fn main() {
     let cli = Cli::parse();
-    let code = match cli.cmd.unwrap_or(Cmd::Gui { ratio: None, color: None, dir: None }) {
+    let code = match cli.cmd.unwrap_or(Cmd::Gui {
+        ratio: None,
+        color: None,
+        dir: None,
+    }) {
         Cmd::Gui { ratio, color, dir } => run_gui(cli.debug, cli.delay, ratio, color, dir),
-        Cmd::Full { screen, output, clipboard, region } => {
-            run_full(cli.debug, cli.delay, screen, output, clipboard, region)
-        }
+        Cmd::Full {
+            screen,
+            output,
+            clipboard,
+            region,
+        } => run_full(cli.debug, cli.delay, screen, output, clipboard, region),
         Cmd::Screens => run_screens(cli.debug),
-        Cmd::Hotkey { key, command, remove } => run_hotkey(key, command, remove),
+        Cmd::Hotkey {
+            key,
+            command,
+            remove,
+        } => run_hotkey(key, command, remove),
         Cmd::Config { init } => run_config(init),
         Cmd::Settings => settings::run(),
     };
@@ -137,7 +155,13 @@ fn wait_delay(delay: f64) {
     }
 }
 
-fn run_gui(debug: bool, delay: f64, ratio: Option<String>, color: Option<String>, dir: Option<PathBuf>) -> i32 {
+fn run_gui(
+    debug: bool,
+    delay: f64,
+    ratio: Option<String>,
+    color: Option<String>,
+    dir: Option<PathBuf>,
+) -> i32 {
     wait_delay(delay);
     let mut cfg = config::Config::load();
     if let Some(r) = ratio {
@@ -157,6 +181,10 @@ fn run_gui(debug: bool, delay: f64, ratio: Option<String>, color: Option<String>
     if let Some(d) = dir {
         cfg.save_dir = Some(d.to_string_lossy().to_string());
     }
+
+    // Ẩn các app luôn nổi trên cùng: chúng vừa lọt vào ảnh, vừa đè lên lớp chọn
+    // vùng. Tự hiện lại khi `_hidden` bị huỷ (lúc overlay đóng).
+    let _hidden = inhibit::Hidden::hide(debug);
 
     // Chụp TRƯỚC khi mở cửa sổ để không dính giao diện của chính mình.
     let cap = match capture::capture_all(debug) {
@@ -178,7 +206,9 @@ fn gdk_monitors() -> Vec<(String, model::Rect, i32)> {
     if gtk::init().is_err() {
         return Vec::new();
     }
-    let Some(display) = gtk::gdk::Display::default() else { return Vec::new() };
+    let Some(display) = gtk::gdk::Display::default() else {
+        return Vec::new();
+    };
     let list = display.monitors();
     let mut v = Vec::new();
     for i in 0..list.n_items() {
@@ -190,7 +220,12 @@ fn gdk_monitors() -> Vec<(String, model::Rect, i32)> {
                 .unwrap_or_else(|| format!("monitor{i}"));
             v.push((
                 name,
-                model::Rect::new(g.x() as f64, g.y() as f64, g.width() as f64, g.height() as f64),
+                model::Rect::new(
+                    g.x() as f64,
+                    g.y() as f64,
+                    g.width() as f64,
+                    g.height() as f64,
+                ),
                 m.scale_factor(),
             ));
         }
@@ -204,13 +239,24 @@ fn run_screens(debug: bool) -> i32 {
         eprintln!("quickshot: không thấy màn hình nào (cần chạy trong phiên đồ hoạ)");
         return 1;
     }
-    println!("{:<3} {:<12} {:>6} {:>6} {:>7} {:>7} {:>6}", "#", "Tên", "X", "Y", "Rộng", "Cao", "Scale");
+    println!(
+        "{:<3} {:<12} {:>6} {:>6} {:>7} {:>7} {:>6}",
+        "#", "Tên", "X", "Y", "Rộng", "Cao", "Scale"
+    );
     for (i, (name, r, s)) in mons.iter().enumerate() {
-        println!("{:<3} {:<12} {:>6} {:>6} {:>7} {:>7} {:>6}", i, name, r.x, r.y, r.w, r.h, s);
+        println!(
+            "{:<3} {:<12} {:>6} {:>6} {:>7} {:>7} {:>6}",
+            i, name, r.x, r.y, r.w, r.h, s
+        );
     }
     if debug {
         if let Ok(c) = capture::capture_all(true) {
-            println!("Ảnh chụp toàn desktop: {}x{} (nguồn {})", c.image.width(), c.image.height(), c.source);
+            println!(
+                "Ảnh chụp toàn desktop: {}x{} (nguồn {})",
+                c.image.width(),
+                c.image.height(),
+                c.source
+            );
         }
     }
     0
@@ -226,6 +272,7 @@ fn run_full(
 ) -> i32 {
     wait_delay(delay);
     let cfg = config::Config::load();
+    let _hidden = inhibit::Hidden::hide(debug);
     let cap = match capture::capture_all(debug) {
         Ok(c) => c,
         Err(e) => {
@@ -244,7 +291,10 @@ fn run_full(
             return 1;
         }
         let Some((_, r, _)) = mons.get(n) else {
-            eprintln!("quickshot: không có màn hình số {n} (có {} màn hình)", mons.len());
+            eprintln!(
+                "quickshot: không có màn hình số {n} (có {} màn hình)",
+                mons.len()
+            );
             return 2;
         };
         let minx = mons.iter().map(|m| m.1.x).fold(f64::MAX, f64::min);
@@ -253,7 +303,12 @@ fn run_full(
         let maxy = mons.iter().map(|m| m.1.bottom()).fold(f64::MIN, f64::max);
         let rx = bounds.w / (maxx - minx);
         let ry = bounds.h / (maxy - miny);
-        crop = Some(model::Rect::new((r.x - minx) * rx, (r.y - miny) * ry, r.w * rx, r.h * ry));
+        crop = Some(model::Rect::new(
+            (r.x - minx) * rx,
+            (r.y - miny) * ry,
+            r.w * rx,
+            r.h * ry,
+        ));
     }
     if let Some(s) = region {
         let parts: Vec<f64> = s.split(',').filter_map(|p| p.trim().parse().ok()).collect();
@@ -269,10 +324,14 @@ fn run_full(
             return 2;
         };
         let r = r.rounded();
-        img = image::imageops::crop_imm(&img, r.x as u32, r.y as u32, r.w as u32, r.h as u32).to_image();
+        img = image::imageops::crop_imm(&img, r.x as u32, r.y as u32, r.w as u32, r.h as u32)
+            .to_image();
     }
 
-    let to_stdout = output.as_ref().map(|p| p.as_os_str() == "-").unwrap_or(false);
+    let to_stdout = output
+        .as_ref()
+        .map(|p| p.as_os_str() == "-")
+        .unwrap_or(false);
     let mut code = 0;
     if to_stdout {
         match output::encode_png(&img) {
@@ -305,11 +364,17 @@ fn run_full(
             Ok(png) => match output::copy_png_external(&png) {
                 output::ClipResult::Done => {
                     if cfg.notify {
-                        output::notify("Đã copy ảnh vào clipboard", &format!("{}×{}", img.width(), img.height()), None);
+                        output::notify(
+                            "Đã copy ảnh vào clipboard",
+                            &format!("{}×{}", img.width(), img.height()),
+                            None,
+                        );
                     }
                 }
                 output::ClipResult::NeedGtk => {
-                    eprintln!("quickshot: cần 'wl-copy' (gói wl-clipboard) hoặc 'xclip' để copy ở chế độ dòng lệnh");
+                    eprintln!(
+                        "quickshot: cần 'wl-copy' (gói wl-clipboard) hoặc 'xclip' để copy ở chế độ dòng lệnh"
+                    );
                     code = 1;
                 }
             },
@@ -355,7 +420,11 @@ fn run_config(init: bool) -> i32 {
             Some(p) => println!(
                 "File cấu hình: {} ({})",
                 p.display(),
-                if p.exists() { "đã có" } else { "chưa có — tạo bằng: quickshot config --init" }
+                if p.exists() {
+                    "đã có"
+                } else {
+                    "chưa có — tạo bằng: quickshot config --init"
+                }
             ),
             None => eprintln!("quickshot: không xác định được thư mục cấu hình"),
         }

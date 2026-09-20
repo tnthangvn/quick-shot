@@ -113,3 +113,9 @@ cargo build --release      # → target/release/quickshot
 
 Mã nguồn: `src/capture.rs` (chụp qua portal), `src/overlay.rs` (giao diện & công cụ), `src/render.rs` (vẽ chú thích),
 `src/output.rs` (clipboard/lưu), `src/hotkey.rs` (gsettings), `src/config.rs`, `src/model.rs`.
+
+## Ẩn app luôn nổi trên cùng khi chụp
+
+Trước khi chụp, quickshot gửi `SIGUSR1` cho các app "luôn nổi trên cùng" (hiện tại: `quick-note`) để chúng ẩn đi, nhắc lại `SIGUSR1` mỗi 2 giây trong lúc lớp chọn vùng còn mở, và gửi `SIGUSR2` khi đóng. App bị ẩn nên tự hiện lại nếu ngừng nhận nhắc vài giây (phòng khi quickshot bị kill). Lý do: cửa sổ luôn nổi vừa lọt vào ảnh, vừa nằm đè lên lớp chọn vùng nên nuốt mất chuột và bàn phím.
+
+Thêm app khác vào danh sách: sửa `APPS` trong `src/inhibit.rs` (app đó cần tự ẩn khi nhận `SIGUSR1` và hiện lại khi nhận `SIGUSR2`).

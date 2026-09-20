@@ -47,9 +47,17 @@ pub fn surface_to_image(surf: &mut cairo::ImageSurface) -> RgbaImage {
             let (r, g, b) = if a == 0 || a == 255 {
                 (r, g, b)
             } else {
-                ((r * 255 + a / 2) / a, (g * 255 + a / 2) / a, (b * 255 + a / 2) / a)
+                (
+                    (r * 255 + a / 2) / a,
+                    (g * 255 + a / 2) / a,
+                    (b * 255 + a / 2) / a,
+                )
             };
-            out.put_pixel(x as u32, y as u32, image::Rgba([r as u8, g as u8, b as u8, a as u8]));
+            out.put_pixel(
+                x as u32,
+                y as u32,
+                image::Rgba([r as u8, g as u8, b as u8, a as u8]),
+            );
         }
     }
     out
@@ -76,7 +84,12 @@ pub fn pixel_block(shape: &Shape) -> f64 {
 }
 
 /// Vẽ toàn bộ chú thích. `base` cần cho công cụ pixel hoá.
-pub fn draw_shapes(cr: &cairo::Context, shapes: &[Shape], base: &RgbaImage, editing: Option<usize>) {
+pub fn draw_shapes(
+    cr: &cairo::Context,
+    shapes: &[Shape],
+    base: &RgbaImage,
+    editing: Option<usize>,
+) {
     for (i, s) in shapes.iter().enumerate() {
         draw_shape(cr, s, base, editing == Some(i));
     }
@@ -213,7 +226,9 @@ fn stroke_path(cr: &cairo::Context, start: (f64, f64), pts: &[(f64, f64)]) {
 
 fn draw_pixelate(cr: &cairo::Context, r: &Rect, block: f64, base: &RgbaImage) {
     let bounds = Rect::new(0.0, 0.0, base.width() as f64, base.height() as f64);
-    let Some(r) = r.rounded().intersect(&bounds) else { return };
+    let Some(r) = r.rounded().intersect(&bounds) else {
+        return;
+    };
     let r = r.rounded();
     let (x0, y0, w, h) = (r.x as u32, r.y as u32, r.w as u32, r.h as u32);
     if w == 0 || h == 0 {

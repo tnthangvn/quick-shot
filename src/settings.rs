@@ -8,8 +8,8 @@ use gtk4 as gtk;
 use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::{
-    Application, ApplicationWindow, Button, CheckButton, DropDown, Entry, EventControllerKey,
-    Grid, Label, Orientation, SpinButton,
+    Application, ApplicationWindow, Button, CheckButton, DropDown, Entry, EventControllerKey, Grid,
+    Label, Orientation, SpinButton,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -18,10 +18,21 @@ use std::rc::Rc;
 fn is_modifier_key(k: gdk::Key) -> bool {
     matches!(
         k,
-        gdk::Key::Shift_L | gdk::Key::Shift_R | gdk::Key::Control_L | gdk::Key::Control_R
-            | gdk::Key::Alt_L | gdk::Key::Alt_R | gdk::Key::Meta_L | gdk::Key::Meta_R
-            | gdk::Key::Super_L | gdk::Key::Super_R | gdk::Key::Hyper_L | gdk::Key::Hyper_R
-            | gdk::Key::ISO_Level3_Shift | gdk::Key::Caps_Lock | gdk::Key::Num_Lock
+        gdk::Key::Shift_L
+            | gdk::Key::Shift_R
+            | gdk::Key::Control_L
+            | gdk::Key::Control_R
+            | gdk::Key::Alt_L
+            | gdk::Key::Alt_R
+            | gdk::Key::Meta_L
+            | gdk::Key::Meta_R
+            | gdk::Key::Super_L
+            | gdk::Key::Super_R
+            | gdk::Key::Hyper_L
+            | gdk::Key::Hyper_R
+            | gdk::Key::ISO_Level3_Shift
+            | gdk::Key::Caps_Lock
+            | gdk::Key::Num_Lock
     )
 }
 
@@ -34,7 +45,11 @@ pub fn run() -> i32 {
         .build();
     app.connect_activate(build_ui);
     let code = app.run_with_args(&["quickshot"]);
-    if code == gtk::glib::ExitCode::SUCCESS { 0 } else { 1 }
+    if code == gtk::glib::ExitCode::SUCCESS {
+        0
+    } else {
+        1
+    }
 }
 
 fn build_ui(app: &Application) {
@@ -58,7 +73,10 @@ fn build_ui(app: &Application) {
 
     let mut row = 0i32;
     let add_label = |grid: &Grid, text: &str, row: i32| {
-        let l = Label::builder().label(text).halign(gtk::Align::Start).build();
+        let l = Label::builder()
+            .label(text)
+            .halign(gtk::Align::Start)
+            .build();
         grid.attach(&l, 0, row, 1, 1);
     };
 
@@ -67,7 +85,11 @@ fn build_ui(app: &Application) {
     let hotkey_val = Rc::new(RefCell::new(hotkey::current_binding().unwrap_or_default()));
     let capturing = Rc::new(RefCell::new(false));
     let btn_label = |v: &str| {
-        if v.is_empty() { "(chưa gán) — bấm để đặt".to_string() } else { v.to_string() }
+        if v.is_empty() {
+            "(chưa gán) — bấm để đặt".to_string()
+        } else {
+            v.to_string()
+        }
     };
     let hotkey_btn = Button::builder()
         .label(btn_label(&hotkey_val.borrow()))
@@ -146,7 +168,10 @@ fn build_ui(app: &Application) {
 
     // --- Màu vẽ ---
     add_label(&grid, "Màu vẽ mặc định", row);
-    let color_entry = Entry::builder().text(&cfg.color).tooltip_text("Dạng #RRGGBB").build();
+    let color_entry = Entry::builder()
+        .text(&cfg.color)
+        .tooltip_text("Dạng #RRGGBB")
+        .build();
     grid.attach(&color_entry, 1, row, 2, 1);
     row += 1;
 
@@ -175,7 +200,8 @@ fn build_ui(app: &Application) {
     row += 1;
 
     // --- Các tuỳ chọn bật/tắt ---
-    let enter_copies = CheckButton::with_label("Enter = copy clipboard rồi thoát (tắt: Enter lưu file)");
+    let enter_copies =
+        CheckButton::with_label("Enter = copy clipboard rồi thoát (tắt: Enter lưu file)");
     enter_copies.set_active(cfg.enter_copies);
     grid.attach(&enter_copies, 0, row, 3, 1);
     row += 1;
@@ -189,11 +215,19 @@ fn build_ui(app: &Application) {
     row += 1;
 
     // --- Trạng thái + nút ---
-    let status = Label::builder().label("").halign(gtk::Align::Start).wrap(true).build();
+    let status = Label::builder()
+        .label("")
+        .halign(gtk::Align::Start)
+        .wrap(true)
+        .build();
     grid.attach(&status, 0, row, 3, 1);
     row += 1;
 
-    let buttons = gtk::Box::builder().orientation(Orientation::Horizontal).spacing(8).halign(gtk::Align::End).build();
+    let buttons = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(8)
+        .halign(gtk::Align::End)
+        .build();
     let btn_close = Button::with_label("Đóng");
     let btn_save = Button::with_label("Lưu");
     btn_save.add_css_class("suggested-action");
@@ -208,7 +242,9 @@ fn build_ui(app: &Application) {
         let dir_entry = dir_entry.clone();
         let win = win.clone();
         dir_browse.connect_clicked(move |_| {
-            let dialog = gtk::FileDialog::builder().title("Chọn thư mục lưu ảnh").build();
+            let dialog = gtk::FileDialog::builder()
+                .title("Chọn thư mục lưu ảnh")
+                .build();
             let dir_entry = dir_entry.clone();
             dialog.select_folder(Some(&win), gtk::gio::Cancellable::NONE, move |res| {
                 if let Ok(file) = res {
@@ -262,7 +298,11 @@ fn build_ui(app: &Application) {
             .to_string();
 
         let cfg = Config {
-            save_dir: if dir_text.trim().is_empty() { None } else { Some(dir_text) },
+            save_dir: if dir_text.trim().is_empty() {
+                None
+            } else {
+                Some(dir_text)
+            },
             filename,
             color,
             thickness: thickness.value(),

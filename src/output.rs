@@ -15,9 +15,11 @@ pub fn encode_png(img: &RgbaImage) -> Result<Vec<u8>, String> {
 
 pub fn save_png(img: &RgbaImage, path: &Path) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("tạo thư mục {}: {e}", parent.display()))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("tạo thư mục {}: {e}", parent.display()))?;
     }
-    img.save(path).map_err(|e| format!("ghi {}: {e}", path.display()))
+    img.save(path)
+        .map_err(|e| format!("ghi {}: {e}", path.display()))
 }
 
 pub fn default_save_path(cfg: &crate::config::Config) -> PathBuf {
@@ -39,7 +41,10 @@ pub fn copy_png_external(png: &[u8]) -> ClipResult {
     if wayland {
         candidates.push(("wl-copy", vec!["--type", "image/png"]));
     }
-    candidates.push(("xclip", vec!["-selection", "clipboard", "-t", "image/png", "-i"]));
+    candidates.push((
+        "xclip",
+        vec!["-selection", "clipboard", "-t", "image/png", "-i"],
+    ));
     if wayland {
         // vẫn thử nếu WAYLAND_DISPLAY có nhưng wl-copy không có
     } else {
@@ -62,9 +67,7 @@ pub fn copy_png_external(png: &[u8]) -> ClipResult {
             }
         }
         match child.wait() {
-            Ok(s) if s.success() => {
-                return ClipResult::Done
-            }
+            Ok(s) if s.success() => return ClipResult::Done,
             _ => continue,
         }
     }
