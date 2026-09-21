@@ -110,21 +110,39 @@ build_from_source() {
     echo "  sudo apt install cargo rustc                                    # nếu apt đủ mới"
     exit 1
   fi
-  if has apt-get; then
-    sudo apt-get install -y build-essential pkg-config libgtk-4-dev || true
+  # Chỉ xin sudo khi thiếu thật: build lại sau mỗi lần pull không nên hỏi mật khẩu.
+  if ! pkg-config --exists gtk4 2>/dev/null; then
+    if has apt-get; then
+      sudo apt-get install -y build-essential pkg-config libgtk-4-dev || true
+    else
+      echo "Thiếu thư viện phát triển GTK4 — cài libgtk-4-dev (hoặc gtk4-devel) rồi chạy lại."
+    fi
   fi
   cargo build --release
   mkdir -p bin && cp target/release/quickshot bin/quickshot
 }
 
+# bin/quickshot không nằm trong git: nó là bản dựng sẵn còn lại từ lần cài
+# trước. Nếu mã nguồn mới hơn nó (vừa git pull chẳng hạn) thì phải build lại,
+# không thì cài lại vẫn ra bản cũ và tưởng là lỗi quay lại.
+prebuilt_is_stale() {
+  [ -x bin/quickshot ] || return 0
+  local newer
+  newer=$(find src Cargo.toml Cargo.lock -newer bin/quickshot -print -quit 2>/dev/null)
+  [ -n "$newer" ]
+}
+
 echo "== 2/4 File thực thi =="
 if [ "$BUILD" = 1 ]; then
   build_from_source
-elif [ -x bin/quickshot ] && ./bin/quickshot --version >/dev/null 2>&1; then
-  echo "Dùng bản dựng sẵn: $(./bin/quickshot --version)"
-else
+elif ! [ -x bin/quickshot ] || ! ./bin/quickshot --version >/dev/null 2>&1; then
   echo "Bản dựng sẵn thiếu hoặc không chạy được trên máy này — build lại."
   build_from_source
+elif prebuilt_is_stale; then
+  echo "Mã nguồn mới hơn bản dựng sẵn — build lại."
+  build_from_source
+else
+  echo "Dùng bản dựng sẵn: $(./bin/quickshot --version)"
 fi
 
 # ------------------------------------------------------------------ 3. cài đặt
