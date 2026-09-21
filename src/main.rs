@@ -182,11 +182,9 @@ fn run_gui(
         cfg.save_dir = Some(d.to_string_lossy().to_string());
     }
 
-    // Ẩn các app luôn nổi trên cùng: chúng vừa lọt vào ảnh, vừa đè lên lớp chọn
-    // vùng. Tự hiện lại khi `_hidden` bị huỷ (lúc overlay đóng).
-    let _hidden = inhibit::Hidden::hide(debug);
-
-    // Chụp TRƯỚC khi mở cửa sổ để không dính giao diện của chính mình.
+    // Chụp TRƯỚC khi mở cửa sổ để không dính giao diện của chính mình. Cũng chụp
+    // trước khi ẩn các app luôn nổi trên cùng, để nội dung của chúng (vd ghi chú
+    // quick-note) vẫn nằm trong ảnh.
     let cap = match capture::capture_all(debug) {
         Ok(c) => c,
         Err(e) => {
@@ -194,6 +192,10 @@ fn run_gui(
             return 1;
         }
     };
+
+    // Ảnh đã đóng băng: giờ mới ẩn các app luôn nổi trên cùng để chúng không đè
+    // lên lớp chọn vùng. Tự hiện lại khi `_hidden` bị huỷ (lúc overlay đóng).
+    let _hidden = inhibit::Hidden::hide(debug);
     if debug {
         eprintln!("[capture] nguồn: {}", cap.source);
     }
@@ -272,7 +274,8 @@ fn run_full(
 ) -> i32 {
     wait_delay(delay);
     let cfg = config::Config::load();
-    let _hidden = inhibit::Hidden::hide(debug);
+    // Không ẩn app luôn nổi: chế độ dòng lệnh không có lớp chọn vùng để bị đè,
+    // và người dùng muốn thấy nội dung của chúng trong ảnh.
     let cap = match capture::capture_all(debug) {
         Ok(c) => c,
         Err(e) => {
@@ -361,7 +364,7 @@ fn run_full(
     }
     if clipboard {
         match output::encode_png(&img) {
-            Ok(png) => match output::copy_png_external(&png) {
+            Ok(png) => match output::copy_png_external(&png, output::WindowPolicy::Allow) {
                 output::ClipResult::Done => {
                     if cfg.notify {
                         output::notify(

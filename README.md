@@ -10,16 +10,28 @@ Bản trên Google Drive chỉ có mã nguồn (không có file thực thi dựn
 ```bash
 cd quickshot
 chmod +x install.sh uninstall.sh
-./install.sh --build    # tự cài cargo/libgtk-4-dev (hỏi sudo), dựng và cài
+./install.sh            # cài gói phụ thuộc + bản dựng sẵn + icon + phím Print
 ```
 
-Nếu chưa có Rust: `sudo apt install cargo rustc libgtk-4-dev build-essential pkg-config` (Ubuntu 26 có sẵn trong kho).
+Máy mới chỉ cần chạy đúng `install.sh`: nó cài hết gói phụ thuộc (hỏi `sudo`), dùng bản dựng sẵn
+trong `bin/` — nếu bản đó không chạy được trên máy đó thì tự build lại từ mã nguồn — copy `quickshot`
+vào `~/.local/bin`, tạo icon trong menu ứng dụng, gán phím **Print**, rồi in bảng kiểm tra công cụ ngoài.
+(Phím Print gốc của GNOME được tắt; `quickshot hotkey --remove` để trả lại.)
 
-`install.sh` sẽ: cài các gói phụ thuộc (`libgtk-4-1 wl-clipboard xdg-desktop-portal-gnome libnotify-bin`),
-copy `quickshot` vào `~/.local/bin`, tạo icon trong menu ứng dụng, và gán phím **Print** để mở quickshot
-(phím Print gốc của GNOME được tắt; `quickshot hotkey --remove` để trả lại).
+Gói được cài (tên theo apt, có ánh xạ sẵn cho dnf/pacman/zypper):
 
-Không muốn đụng phím Print: `./install.sh --build --no-hotkey` rồi `quickshot hotkey --key "<Super>s"`.
+| Gói | Dùng để |
+|---|---|
+| `libgtk-4-1` | lớp chọn vùng, cửa sổ Cài đặt |
+| `xdg-desktop-portal` + backend theo desktop | chụp màn hình trên Wayland |
+| `xclip` | copy ảnh mà không mở cửa sổ phụ (GNOME thiếu `zwlr_data_control`) |
+| `wl-clipboard` | copy ảnh trên wlroots/KDE và ở chế độ dòng lệnh |
+| `libnotify-bin` | `notify-send` — thông báo sau khi chụp |
+| `procps` | `pkill` — tạm ẩn app luôn nổi trên cùng lúc chọn vùng |
+| `libglib2.0-bin`, `libgtk-3-bin`, `desktop-file-utils` | `gsettings`, `gtk-launch`, cập nhật menu |
+
+Tham số: `--build` ép build lại, `--no-hotkey` không đụng phím Print, `--no-deps` bỏ bước cài gói (khỏi cần sudo).
+Rust chỉ cần khi phải build (>= 1.85, edition 2024).
 
 **Lần chạy đầu tiên** GNOME sẽ hỏi *"Cho phép QuickShot chụp màn hình?"* — chọn **Share / Cho phép**.
 Nếu mở qua phím tắt hoặc icon trong menu, GNOME nhớ lựa chọn này và không hỏi lại.
@@ -101,7 +113,10 @@ Trên X11 (Xorg) app vẫn chạy; nếu không có portal sẽ tự dùng `gnom
 - **Không chụp được / "Access denied"**: cài `xdg-desktop-portal-gnome`, đăng xuất rồi vào lại.
   Nếu lỡ bấm *Deny*: mở Settings → Apps → QuickShot → bật Screenshot, hoặc `flatpak permission-reset screenshot`.
 - **Ảnh chỉ có 1 màn hình / lệch vị trí**: chạy `quickshot screens` và `quickshot --debug`, gửi kết quả để chỉnh.
-- **Copy xong dán không được**: cài `wl-clipboard` (`sudo apt install wl-clipboard`).
+- **Copy xong dán không được**: cài `xclip` (`sudo apt install xclip`); thiếu cả `xclip` lẫn
+  `wl-copy` thì quickshot phải tự giữ clipboard nên tiến trình ở lại nền tới 3 giờ.
+- **GNOME hiện thông báo lạ `"wl-clipboard" is ready`**: cài `xclip`. Trên GNOME `wl-copy` phải tự mở
+  một cửa sổ ẩn để xin focus, Shell coi đó là cửa sổ đòi chú ý; quickshot né bằng `xclip` hoặc clipboard GTK.
 - **Phím Print vẫn mở trình chụp của GNOME**: chạy lại `quickshot hotkey --key Print`.
 
 ## Dựng từ mã nguồn

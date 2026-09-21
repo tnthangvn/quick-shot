@@ -17,6 +17,10 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+/// Thời gian tối đa giữ tiến trình sống để clipboard còn hiệu lực (GNOME không
+/// có clipboard manager: nội dung mất ngay khi tiến trình sở hữu thoát).
+const CLIP_KEEPALIVE: Duration = Duration::from_secs(3 * 3600);
+
 const HANDLE: f64 = 9.0; // px logic
 const BTN: f64 = 36.0;
 const GAP: f64 = 4.0;
@@ -1552,10 +1556,6 @@ pub fn perform(shared: &Shared, action: Action) {
         let img = render::render_final(&ov.base, &ov.base_surf, &sel, &ov.shapes);
         (img, ov.cfg.clone(), ov.windows.clone(), ov.app.clone())
     };
-    for w in &windows {
-        w.set_visible(false);
-    }
-
     let mut saved_path: Option<PathBuf> = None;
     let mut need_copy = false;
     match &action {
@@ -1579,13 +1579,15 @@ pub fn perform(shared: &Shared, action: Action) {
         }
     }
 
+    // Copy khi cửa sổ overlay còn hiển thị: GTK cần một surface còn sống (và
+    // serial nhập liệu của nó) mới set được selection trên Wayland.
     let mut keep_alive = false;
     if need_copy {
         match output::encode_png(&img) {
-            Ok(png) => match output::copy_png_external(&png) {
+            Ok(png) => match output::copy_png_external(&png, output::WindowPolicy::Avoid) {
                 output::ClipResult::Done => {}
                 output::ClipResult::NeedGtk => {
-                    // Không có wl-copy/xclip: GTK giữ clipboard, tiến trình sống tới khi
+                    // Không dùng được wl-copy/xclip: GTK giữ clipboard, tiến trình sống tới khi
                     // app khác ghi đè clipboard (GNOME không có clipboard manager).
                     if let Some(w) = windows.first() {
                         let (iw, ih) = (img.width() as i32, img.height() as i32);
@@ -1609,20 +1611,24 @@ pub fn perform(shared: &Shared, action: Action) {
                             }
                         });
                         let app3 = app.clone();
-                        glib::timeout_add_local_once(Duration::from_secs(1800), move || {
+                        glib::timeout_add_local_once(CLIP_KEEPALIVE, move || {
                             if let Some(a) = &app3 {
                                 a.quit();
                             }
                         });
                         eprintln!(
-                            "quickshot: không thấy wl-copy/xclip — giữ tiến trình để clipboard còn hiệu lực \
-                             (cài 'wl-clipboard' để không cần vậy)."
+                            "quickshot: giữ tiến trình để clipboard còn hiệu lực \
+                             (cài 'xclip' để không cần vậy)."
                         );
                     }
                 }
             },
             Err(e) => eprintln!("quickshot: mã hoá PNG lỗi: {e}"),
         }
+    }
+
+    for w in &windows {
+        w.set_visible(false);
     }
 
     if cfg.notify {

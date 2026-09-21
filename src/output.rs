@@ -33,23 +33,41 @@ pub enum ClipResult {
     NeedGtk,
 }
 
+/// Có nên để công cụ ngoài tự mở cửa sổ để lấy clipboard hay không.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum WindowPolicy {
+    /// Chấp nhận: chế độ dòng lệnh không có cửa sổ GTK nào để giữ clipboard.
+    Allow,
+    /// Tránh: thà để GTK giữ clipboard còn hơn làm GNOME hiện thông báo lạ.
+    Avoid,
+}
+
+/// GNOME/mutter không hỗ trợ zwlr_data_control, nên wl-copy phải tự tạo một
+/// xdg_toplevel tên "wl-clipboard" để xin focus rồi mới set được selection.
+/// Cửa sổ đó không xin được activation token (quickshot vừa ẩn cửa sổ của mình)
+/// nên GNOME Shell coi là cửa sổ đòi chú ý và hiện thông báo
+/// «Unknown — "wl-clipboard" is ready».
+pub fn wl_copy_opens_window() -> bool {
+    std::env::var("XDG_CURRENT_DESKTOP")
+        .unwrap_or_default()
+        .split(':')
+        .any(|d| d.eq_ignore_ascii_case("GNOME") || d.eq_ignore_ascii_case("Unity"))
+}
+
 /// Copy PNG vào clipboard bằng wl-copy (Wayland) hoặc xclip/xsel (X11).
 /// Các công cụ này tự fork để giữ nội dung sau khi ta thoát.
-pub fn copy_png_external(png: &[u8]) -> ClipResult {
+pub fn copy_png_external(png: &[u8], policy: WindowPolicy) -> ClipResult {
     let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let skip_wl_copy = wayland && policy == WindowPolicy::Avoid && wl_copy_opens_window();
     let mut candidates: Vec<(&str, Vec<&str>)> = Vec::new();
-    if wayland {
+    if !skip_wl_copy {
         candidates.push(("wl-copy", vec!["--type", "image/png"]));
     }
+    // xclip chạy qua XWayland và không map cửa sổ nào nên luôn im lặng.
     candidates.push((
         "xclip",
         vec!["-selection", "clipboard", "-t", "image/png", "-i"],
     ));
-    if wayland {
-        // vẫn thử nếu WAYLAND_DISPLAY có nhưng wl-copy không có
-    } else {
-        candidates.insert(0, ("wl-copy", vec!["--type", "image/png"]));
-    }
     for (cmd, args) in candidates {
         if which(cmd).is_none() {
             continue;
